@@ -43,3 +43,5 @@ next-env.d.ts
 /data
 
 /README.md
+
+/supabase-estructura.sql
