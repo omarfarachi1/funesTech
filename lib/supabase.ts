@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// Cliente de Supabase para uso EXCLUSIVO del servidor (usa la clave secreta).
-// Esta clave nunca debe llegar al navegador: no usar el prefijo NEXT_PUBLIC_.
+//clave de superbase
 let cliente: SupabaseClient | null = null;
 
 export function db(): SupabaseClient {
