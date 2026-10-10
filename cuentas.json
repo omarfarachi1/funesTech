@@ -1,0 +1,12 @@
+[
+  {
+    "tipo": "persona",
+    "nombre": "pepe",
+    "dni": "3434343",
+    "fecha_nacimiento": "1999-10-29",
+    "usuario": "pepe1",
+    "password_hash": "$2b$10$fiq81cWhQCEhYc6SW6zA6.2V/DwmuoTLE9bZfgTPXE68wJO590fI2",
+    "id": "67b0f991-b2b3-4c16-9385-c8c07093d066",
+    "creada": "2026-10-01T23:23:57.885Z"
+  }
+]

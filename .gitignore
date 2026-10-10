@@ -40,6 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+
 /README.md
 
 /data
+
+/README.md
+
