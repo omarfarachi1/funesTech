@@ -33,7 +33,7 @@ export default function LoginForm() {
 
     setCargando(true);
     try {
-      const r = await fetch('.../api/login', {
+      const r = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, password }),
