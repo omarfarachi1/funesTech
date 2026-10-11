@@ -1,66 +1,56 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '../../../lib/supabase';
+import bcrypt from 'bcryptjs';
+import { buscarPorUsuario } from '../../../lib/cuentas';
+import { crearSesion } from '../../../lib/session';
 
-// RUTA TEMPORAL DE DIAGNÓSTICO: borrarla cuando termines de probar.
-// No muestra claves completas: solo largos, formato y el resultado de la conexión.
-export async function GET(req: NextRequest) {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-  const clave = process.env.SUPABASE_SECRET_KEY ?? '';
+// Límite simple de intentos fallidos por IP (5 cada 10 minutos)
+const fallos = new Map<string, number[]>();
+const VENTANA = 10 * 60 * 1000;
 
-  const resultado: Record<string, unknown> = {
-    version: 'lee-supabase',
-    entorno: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
-    rama: process.env.VERCEL_GIT_COMMIT_REF ?? null,
-    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
-    variables: {
-      URL_de_Supabase: Boolean(url),
-      SUPABASE_SECRET_KEY: Boolean(clave),
-      SESSION_SECRET: Boolean(process.env.SESSION_SECRET),
-    },
-    detalle: {
-      url_largo: url.length,
-      url_empieza_con_https: url.startsWith('https://'),
-      url_termina_en_supabase_co: url.endsWith('.supabase.co'),
-      url_con_espacios: url !== url.trim(),
-      clave_largo: clave.length,
-      clave_prefijo: clave.slice(0, 7),
-      clave_con_espacios: clave !== clave.trim(),
-      sesion_largo: (process.env.SESSION_SECRET ?? '').length,
-    },
-  };
+function intentosRecientes(ip: string) {
+  const lista = (fallos.get(ip) ?? []).filter((t) => Date.now() - t < VENTANA);
+  fallos.set(ip, lista);
+  return lista;
+}
 
-  // 1) Prueba directa contra la API de Supabase (sin librería), para ver el código HTTP real
-  try {
-    const r = await fetch(`${url.trim().replace(/\/$/, '')}/rest/v1/cuentas?select=id&limit=1`, {
-      headers: { apikey: clave.trim() },
-      cache: 'no-store',
-    });
-    resultado.rest_status = r.status;
-    resultado.rest_respuesta = (await r.text()).slice(0, 160);
-  } catch (err) {
-    resultado.rest_status = 'no se pudo conectar';
-    resultado.rest_respuesta = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+async function procesar(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'local';
+
+  if (intentosRecientes(ip).length >= 5) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.' },
+      { status: 429 }
+    );
   }
 
-  // 2) Prueba con la misma librería que usa la app
-  try {
-    const { count, error } = await db().from('cuentas').select('id', { count: 'exact', head: true });
-    if (error) {
-      resultado.conexion = 'error';
-      resultado.supabase = { message: error.message, code: error.code, details: error.details, hint: error.hint };
-    } else {
-      resultado.conexion = 'ok';
-      resultado.cuentasEnLaBase = count;
-      const usuario = req.nextUrl.searchParams.get('usuario')?.trim().toLowerCase();
-      if (usuario) {
-        const { data } = await db().from('cuentas').select('id').eq('usuario', usuario).maybeSingle();
-        resultado.usuarioExiste = Boolean(data);
-      }
-    }
-  } catch (err) {
-    resultado.conexion = 'error';
-    resultado.mensaje = err instanceof Error ? `${err.name}: ${err.message || '(sin mensaje)'}` : String(err);
+  const cuerpo: { usuario?: string; password?: string } = await req
+    .json()
+    .catch(() => ({}));
+  const cuenta = await buscarPorUsuario(String(cuerpo.usuario ?? '').trim().toLowerCase());
+  const ok = cuenta ? await bcrypt.compare(String(cuerpo.password ?? ''), cuenta.hash) : false;
+
+  if (!cuenta || !ok) {
+    fallos.set(ip, [...intentosRecientes(ip), Date.now()]);
+    return NextResponse.json(
+      { error: 'Usuario o contraseña incorrectos. Revisá los datos e intentá de nuevo.' },
+      { status: 401 }
+    );
   }
 
-  return NextResponse.json(resultado, { headers: { 'Cache-Control': 'no-store' } });
+  await crearSesion({
+    usuario: cuenta.usuario,
+    nombre: cuenta.nombre,
+    tipo: cuenta.tipo,
+    personeria: cuenta.personeria,
+  });
+  return NextResponse.json({ ok: true });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    return await procesar(req);
+  } catch (err) {
+    console.error('Error en /api/login:', err);
+    return NextResponse.json({ error: 'Error del servidor. Intentá de nuevo más tarde.' }, { status: 500 });
+  }
 }
