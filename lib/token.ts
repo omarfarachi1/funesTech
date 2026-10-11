@@ -11,21 +11,26 @@ export type DatosSesion = {
   personeria?: Personeria;
 };
 
-const clave = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? 'cambiar-este-secreto-de-desarrollo'
-);
+// En producción no se acepta una clave por defecto: si falta SESSION_SECRET, la app avisa en lugar de funcionar sin protección.
+function clave() {
+  const secreto = process.env.SESSION_SECRET;
+  if (!secreto && process.env.NODE_ENV === 'production') {
+    throw new Error('Falta SESSION_SECRET en las variables de entorno.');
+  }
+  return new TextEncoder().encode(secreto || 'cambiar-este-secreto-de-desarrollo');
+}
 
 export function firmar(datos: DatosSesion) {
   return new SignJWT({ ...datos })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${DURACION}s`)
-    .sign(clave);
+    .sign(clave());
 }
 
 export async function verificar(token: string): Promise<DatosSesion | null> {
   try {
-    const { payload } = await jwtVerify(token, clave, { algorithms: ['HS256'] });
+    const { payload } = await jwtVerify(token, clave(), { algorithms: ['HS256'] });
     return payload as unknown as DatosSesion;
   } catch {
     return null;
