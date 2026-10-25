@@ -64,7 +64,7 @@ function Opcion({
   );
 }
 
-export default function RegistroForm() {
+export default function RegistroForm({ oferta }: { oferta?: string }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<TipoCuenta>('persona');
   const [personeria, setPersoneria] = useState<Personeria>('fisica');
@@ -115,18 +115,18 @@ export default function RegistroForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data: { errores?: Errores; error?: string } = await r.json();
+      const data: { errores?: Errores; error?: string } = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (data.errores) {
           setErrores(data.errores);
           enfocar(data.errores);
         } else {
-          setGeneral(data.error ?? 'No pudimos crear la cuenta. Intentá de nuevo.');
+          setGeneral(data.error ?? `El servidor no pudo procesar el pedido (código ${r.status}). Intentá de nuevo más tarde.`);
         }
         setCargando(false);
         return;
       }
-      router.push('/panel');
+      router.push(oferta ? `/panel?oferta=${oferta}` : '/panel');
       router.refresh();
     } catch {
       setGeneral('No hay conexión con el servidor. Intentá de nuevo.');
@@ -190,7 +190,10 @@ export default function RegistroForm() {
         {cargando ? 'Creando cuenta…' : 'Crear cuenta'}
       </button>
       <p className="alterna">
-        ¿Ya tenés cuenta? <Link href="/">Ingresar</Link>
+        ¿Ya tenés cuenta? <Link href={oferta ? `/ingresar?oferta=${oferta}` : '/ingresar'}>Ingresar</Link>
+      </p>
+      <p className="alterna">
+        <Link href="/">Volver a las ofertas</Link>
       </p>
     </form>
   );

@@ -37,6 +37,13 @@ async function procesar(req: NextRequest) {
     );
   }
 
+  if (!cuenta.habilitada) {
+    return NextResponse.json(
+      { error: 'Tu cuenta está deshabilitada. Comunicate con la Municipalidad.' },
+      { status: 403 }
+    );
+  }
+
   await crearSesion({
     usuario: cuenta.usuario,
     nombre: cuenta.nombre,

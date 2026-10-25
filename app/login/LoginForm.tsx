@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 type Campo = 'usuario' | 'password';
 
-export default function LoginForm() {
+export default function LoginForm({ oferta }: { oferta?: string }) {
   const router = useRouter();
   const usuarioRef = useRef<HTMLInputElement>(null);
   const passRef = useRef<HTMLInputElement>(null);
@@ -38,9 +38,9 @@ export default function LoginForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, password }),
       });
-      const data: { error?: string } = await r.json();
-      if (!r.ok) throw new Error(data.error ?? 'No pudimos iniciar sesión.');
-      router.push('/panel');
+      const data: { error?: string } = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error ?? `El servidor no pudo procesar el pedido (código ${r.status}). Intentá de nuevo más tarde.`);
+      router.push(oferta ? `/panel?oferta=${oferta}` : '/panel');
       router.refresh();
     } catch (err) {
       const msg =
@@ -59,6 +59,7 @@ export default function LoginForm() {
     <form className="formulario" onSubmit={enviar} noValidate>
       <h2>Ingresá a tu cuenta</h2>
       <p className="ayuda">Usá el usuario que te asignó la Municipalidad.</p>
+      {oferta && <p className="aviso">Ingresá o creá tu cuenta para postularte a la oferta que elegiste.</p>}
 
       {error && (
         <div className="error" role="alert">
@@ -104,7 +105,10 @@ export default function LoginForm() {
         ¿Olvidaste tu contraseña?
       </Link>
       <p className="alterna">
-        ¿Todavía no tenés cuenta? <Link href="/registro">Crear cuenta</Link>
+        ¿Todavía no tenés cuenta? <Link href={oferta ? `/registro?oferta=${oferta}` : '/registro'}>Crear cuenta</Link>
+      </p>
+      <p className="alterna">
+        <Link href="/">Volver a las ofertas</Link>
       </p>
     </form>
   );

@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { obtenerSesion } from '../../lib/session';
-import { listarOfertas, perfilActual } from '../../lib/postulante';
-import { ESTADOS, fechaLarga } from '../../lib/formato';
+import { listarOfertas, obtenerOferta, perfilActual } from '../../lib/postulante';
 import { contarCategorias, filtrarOfertas, leerFiltros } from '../../lib/filtro';
 import BotonPostular from './BotonPostular';
 import FiltroOfertas from './FiltroOfertas';
 import Paginacion from './Paginacion';
+import TarjetaOferta from '../TarjetaOferta';
+import PanelEmpresa from './PanelEmpresa';
+import PanelAdmin from './PanelAdmin';
 
 export const metadata: Metadata = { title: 'Ofertas · Funestrabajo' };
 
@@ -17,17 +19,8 @@ export default async function Ofertas({
 }) {
   const sesion = await obtenerSesion();
 
-  if (sesion?.tipo === 'empresa') {
-    return (
-      <main className="contenedor contenedor-angosto">
-        <h1 className="titulo">Hola, {sesion.nombre}</h1>
-        <p className="sub">
-          Cuenta de empresa · persona {sesion.personeria === 'juridica' ? 'jurídica' : 'física'}
-        </p>
-        <p className="vacio">Pronto vas a poder publicar ofertas y ver a los postulantes desde acá.</p>
-      </main>
-    );
-  }
+  if (sesion?.tipo === 'admin') return <PanelAdmin />;
+  if (sesion?.tipo === 'empresa') return <PanelEmpresa />;
 
   const perfil = await perfilActual();
   if (!perfil) {
@@ -38,10 +31,16 @@ export default async function Ofertas({
     );
   }
 
-  const filtros = leerFiltros(await searchParams);
-  const { ofertas, estados } = await listarOfertas(perfil.id);
+  const sp = await searchParams;
+  const filtros = leerFiltros(sp);
+  const idElegida = typeof sp.oferta === 'string' ? sp.oferta : '';
+  const [{ ofertas, estados }, elegida] = await Promise.all([
+    listarOfertas(perfil.id),
+    idElegida ? obtenerOferta(idElegida) : Promise.resolve(null),
+  ]);
   const categorias = contarCategorias(ofertas);
   const r = filtrarOfertas(ofertas, filtros);
+  const tieneCv = Boolean(perfil.cvNombre);
 
   return (
     <main className="contenedor">
@@ -50,9 +49,25 @@ export default async function Ofertas({
         {ofertas.length === 1 ? '1 oferta abierta' : `${ofertas.length} ofertas abiertas`} en la ciudad
       </p>
 
+      {elegida && (
+        <section className="destacada" aria-labelledby="t-elegida">
+          <h2 id="t-elegida" className="destacada-titulo">
+            La oferta que elegiste
+          </h2>
+          <ul className="lista">
+            <TarjetaOferta
+              o={elegida}
+              href={`/ofertas/${elegida.id}`}
+              estado={estados[elegida.id]}
+              accion={<BotonPostular ofertaId={elegida.id} yaPostulado={Boolean(estados[elegida.id])} tieneCv={tieneCv} />}
+            />
+          </ul>
+        </section>
+      )}
+
       <FiltroOfertas filtros={filtros} categorias={categorias} />
 
-      {!perfil.cvNombre && (
+      {!tieneCv && (
         <p className="aviso">
           Para postularte primero tenés que cargar tu currículum. <Link href="/panel/perfil">Ir a Mi perfil</Link>
         </p>
@@ -73,38 +88,15 @@ export default async function Ofertas({
         </p>
       ) : (
         <ul className="lista">
-          {r.items.map((o) => {
-            const estado = estados[o.id];
-            return (
-              <li key={o.id} className="tarjeta">
-                <div className="tarjeta-cab">
-                  <div>
-                    <h2>{o.titulo}</h2>
-                    <p className="empresa">
-                      {o.empresa} · {o.localidad}
-                    </p>
-                  </div>
-                  {estado && <span className={`badge badge-${estado}`}>{ESTADOS[estado]}</span>}
-                </div>
-                <p>{o.descripcion}</p>
-                <p className="meta">
-                  <span className="etiqueta">{o.categoria}</span>
-                  {o.horario && <>{o.horario} · </>}Publicada el {fechaLarga(o.creada)}
-                </p>
-                {o.requisitos.length > 0 && (
-                  <details>
-                    <summary>Ver requisitos</summary>
-                    <ul className="requisitos">
-                      {o.requisitos.map((req) => (
-                        <li key={req}>{req}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-                <BotonPostular ofertaId={o.id} yaPostulado={Boolean(estado)} tieneCv={Boolean(perfil.cvNombre)} />
-              </li>
-            );
-          })}
+          {r.items.map((o) => (
+            <TarjetaOferta
+              key={o.id}
+              o={o}
+              href={`/ofertas/${o.id}`}
+              estado={estados[o.id]}
+              accion={<BotonPostular ofertaId={o.id} yaPostulado={Boolean(estados[o.id])} tieneCv={tieneCv} />}
+            />
+          ))}
         </ul>
       )}
 

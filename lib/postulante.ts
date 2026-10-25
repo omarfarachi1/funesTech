@@ -15,6 +15,9 @@ export type Perfil = {
   telefono: string;
   localidad: string;
   presentacion: string;
+  ocupacion: string;
+  experiencia: string;
+  categorias: string[];
   cvPath: string | null;
   cvNombre: string | null;
   cvActualizado: string | null;
@@ -32,6 +35,7 @@ export type Oferta = {
   localidad: string;
   horario: string;
   creada: string;
+  fotoVersion: string | null;
 };
 
 export type Postulacion = {
@@ -44,7 +48,7 @@ export type Postulacion = {
 };
 
 const COLS =
-  'id, usuario, nombre, dni, fecha_nacimiento, email, telefono, localidad, presentacion, cv_path, cv_nombre, cv_actualizado_en, foto_path, foto_actualizada_en';
+  'id, usuario, nombre, dni, fecha_nacimiento, email, telefono, localidad, presentacion, ocupacion, experiencia, categorias, cv_path, cv_nombre, cv_actualizado_en, foto_path, foto_actualizada_en';
 const BUCKET = 'cvs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,6 +66,9 @@ function aPerfil(f: Fila): Perfil {
     telefono: f.telefono ?? '',
     localidad: f.localidad ?? '',
     presentacion: f.presentacion ?? '',
+    ocupacion: f.ocupacion ?? '',
+    experiencia: f.experiencia ?? '',
+    categorias: f.categorias ?? [],
     cvPath: f.cv_path ?? null,
     cvNombre: f.cv_nombre ?? null,
     cvActualizado: f.cv_actualizado_en ?? null,
@@ -80,6 +87,7 @@ export const perfilActual = cache(async (): Promise<Perfil | null> => {
     .select(COLS)
     .eq('usuario', sesion.usuario)
     .eq('tipo', 'persona')
+    .eq('habilitada', true)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? aPerfil(data) : null;
@@ -95,6 +103,9 @@ export async function actualizarPerfil(id: string, d: DatosPerfil): Promise<{ er
       telefono: d.telefono || null,
       localidad: d.localidad || null,
       presentacion: d.presentacion || null,
+      ocupacion: d.ocupacion || null,
+      experiencia: d.experiencia || null,
+      categorias: d.categorias,
     })
     .eq('id', id);
   if (error) {
@@ -109,8 +120,8 @@ export async function listarOfertas(cuentaId: string) {
   const [of, po] = await Promise.all([
     db()
       .from('ofertas')
-      .select('id, titulo, categoria, empresa_nombre, descripcion, requisitos, localidad, horario, creada_en')
-      .eq('activa', true)
+      .select('id, titulo, categoria, empresa_nombre, descripcion, requisitos, localidad, horario, creada_en, foto_path, foto_actualizada_en')
+      .eq('activa', true).eq('estado_revision', 'aprobada')
       .order('creada_en', { ascending: false }),
     db().from('postulaciones').select('oferta_id, estado').eq('cuenta_id', cuentaId),
   ]);
@@ -127,6 +138,7 @@ export async function listarOfertas(cuentaId: string) {
     localidad: f.localidad,
     horario: f.horario,
     creada: f.creada_en,
+    fotoVersion: f.foto_path ? (f.foto_actualizada_en ?? '1') : null,
   }));
   const estados: Record<string, EstadoPostulacion> = {};
   for (const p of po.data as Fila[]) estados[p.oferta_id] = p.estado;
@@ -166,7 +178,7 @@ export async function postular(perfil: Perfil, ofertaId: string): Promise<Result
     .from('ofertas')
     .select('id')
     .eq('id', ofertaId)
-    .eq('activa', true)
+    .eq('activa', true).eq('estado_revision', 'aprobada')
     .maybeSingle();
   if (e1) throw new Error(e1.message);
   if (!oferta) return { error: 'Esa oferta ya no está disponible.', status: 404 };
@@ -216,7 +228,7 @@ export async function urlCv(perfil: Perfil): Promise<string | null> {
 // ---------- Foto de perfil (Supabase Storage, bucket privado "fotos") ----------
 const BUCKET_FOTOS = 'fotosPerfil';
 
-export async function guardarFoto(perfil: Perfil, contenido: Buffer) {
+export async function guardarFoto(perfil: { id: string }, contenido: Buffer) {
   const path = `${perfil.id}/foto.jpg`;
   const { error } = await db()
     .storage.from(BUCKET_FOTOS)
@@ -229,7 +241,7 @@ export async function guardarFoto(perfil: Perfil, contenido: Buffer) {
   if (e2) throw new Error(e2.message);
 }
 
-export async function quitarFoto(perfil: Perfil) {
+export async function quitarFoto(perfil: { id: string; fotoPath: string | null }) {
   if (!perfil.fotoPath) return;
   await db().storage.from(BUCKET_FOTOS).remove([perfil.fotoPath]);
   const { error } = await db()
@@ -239,9 +251,88 @@ export async function quitarFoto(perfil: Perfil) {
   if (error) throw new Error(error.message);
 }
 
-export async function leerFoto(perfil: Perfil): Promise<ArrayBuffer | null> {
+export async function leerFoto(perfil: { fotoPath: string | null }): Promise<ArrayBuffer | null> {
   if (!perfil.fotoPath) return null;
   const { data, error } = await db().storage.from(BUCKET_FOTOS).download(perfil.fotoPath);
   if (error || !data) return null;
   return data.arrayBuffer();
+}
+
+// ---------- Ofertas para la portada pública y la oferta elegida ----------
+const OFERTA_COLS =
+  'id, titulo, categoria, empresa_nombre, descripcion, requisitos, localidad, horario, creada_en, foto_path, foto_actualizada_en';
+
+function aOferta(f: Fila): Oferta {
+  return {
+    id: f.id,
+    titulo: f.titulo,
+    categoria: f.categoria ?? 'General',
+    empresa: f.empresa_nombre,
+    descripcion: f.descripcion,
+    requisitos: f.requisitos ?? [],
+    localidad: f.localidad,
+    horario: f.horario,
+    creada: f.creada_en,
+    fotoVersion: f.foto_path ? (f.foto_actualizada_en ?? '1') : null,
+  };
+}
+
+// Ofertas abiertas, visibles sin iniciar sesión
+export async function listarOfertasActivas(): Promise<Oferta[]> {
+  const { data, error } = await db()
+    .from('ofertas')
+    .select(OFERTA_COLS)
+    .eq('activa', true).eq('estado_revision', 'aprobada')
+    .order('creada_en', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as Fila[]).map(aOferta);
+}
+
+export async function obtenerOferta(id: string): Promise<Oferta | null> {
+  if (!UUID.test(id)) return null;
+  const { data, error } = await db().from('ofertas').select(OFERTA_COLS).eq('id', id).eq('activa', true).eq('estado_revision', 'aprobada').maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? aOferta(data) : null;
+}
+
+// Cuenta con la sesión iniciada (postulante o empresa), con lo necesario para la foto de perfil
+export type CuentaFoto = {
+  id: string;
+  nombre: string;
+  tipo: 'persona' | 'empresa';
+  fotoPath: string | null;
+  fotoVersion: string | null;
+};
+
+export const cuentaFotoActual = cache(async (): Promise<CuentaFoto | null> => {
+  const sesion = await obtenerSesion();
+  if (!sesion) return null;
+  const { data, error } = await db()
+    .from('cuentas')
+    .select('id, nombre, tipo, foto_path, foto_actualizada_en')
+    .eq('usuario', sesion.usuario)
+    .eq('habilitada', true)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return {
+    id: data.id,
+    nombre: data.nombre,
+    tipo: data.tipo,
+    fotoPath: data.foto_path ?? null,
+    fotoVersion: data.foto_path ? (data.foto_actualizada_en ?? '1') : null,
+  };
+});
+
+// Estado de la postulación de una persona a una oferta (null si todavía no se postuló)
+export async function estadoDe(cuentaId: string, ofertaId: string): Promise<EstadoPostulacion | null> {
+  if (!UUID.test(ofertaId)) return null;
+  const { data, error } = await db()
+    .from('postulaciones')
+    .select('estado')
+    .eq('cuenta_id', cuentaId)
+    .eq('oferta_id', ofertaId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.estado ?? null) as EstadoPostulacion | null;
 }

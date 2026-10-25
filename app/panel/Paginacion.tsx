@@ -1,14 +1,14 @@
 import Link from 'next/link';
 import type { Filtros } from '../../lib/filtro';
 
-function enlace(f: Filtros, pagina: number) {
+function enlace(base: string, f: Filtros, pagina: number) {
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
   if (f.ubicacion) p.set('ubicacion', f.ubicacion);
   if (f.categoria) p.set('categoria', f.categoria);
   if (pagina > 1) p.set('pagina', String(pagina));
   const s = p.toString();
-  return s ? `/panel?${s}` : '/panel';
+  return s ? `${base}?${s}` : base;
 }
 
 // Primera, última y vecinas de la actual; null = "…"
@@ -27,16 +27,18 @@ export default function Paginacion({
   filtros,
   pagina,
   paginas,
+  base = '/panel',
 }: {
   filtros: Filtros;
   pagina: number;
   paginas: number;
+  base?: string;
 }) {
   if (paginas <= 1) return null;
   return (
     <nav className="paginas" aria-label="Paginación">
       {pagina > 1 ? (
-        <Link href={enlace(filtros, pagina - 1)} className="pag">
+        <Link href={enlace(base, filtros, pagina - 1)} className="pag">
           ‹ Anterior
         </Link>
       ) : (
@@ -50,7 +52,7 @@ export default function Paginacion({
         ) : (
           <Link
             key={n}
-            href={enlace(filtros, n)}
+            href={enlace(base, filtros, n)}
             className="pag"
             aria-current={n === pagina ? 'page' : undefined}
             aria-label={`Página ${n}`}
@@ -60,7 +62,7 @@ export default function Paginacion({
         )
       )}
       {pagina < paginas ? (
-        <Link href={enlace(filtros, pagina + 1)} className="pag">
+        <Link href={enlace(base, filtros, pagina + 1)} className="pag">
           Siguiente ›
         </Link>
       ) : (

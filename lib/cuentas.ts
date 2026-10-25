@@ -1,9 +1,9 @@
 import { db } from './supabase';
-import type { Personeria, TipoCuenta } from './validar';
+import type { Personeria, TipoSesion } from './validar';
 
 export type Cuenta = {
   id: string;
-  tipo: TipoCuenta;
+  tipo: TipoSesion;
   personeria?: Personeria;
   nombre: string;
   dni: string;
@@ -11,15 +11,16 @@ export type Cuenta = {
   usuario: string;
   email: string;
   hash: string;
+  habilitada: boolean;
 };
 
-const COLUMNAS = 'id, tipo, personeria, nombre, dni, fecha_nacimiento, usuario, password_hash, email';
+const COLUMNAS = 'id, tipo, personeria, nombre, dni, fecha_nacimiento, usuario, password_hash, email, habilitada';
 
 // Convierte una fila de la tabla (snake_case) al formato que usa la app.
-function aCuenta(f: Record<string, string | null>): Cuenta {
+function aCuenta(f: Record<string, string | boolean | null>): Cuenta {
   return {
     id: f.id as string,
-    tipo: f.tipo as TipoCuenta,
+    tipo: f.tipo as TipoSesion,
     personeria: (f.personeria as Personeria | null) ?? undefined,
     nombre: f.nombre as string,
     dni: f.dni as string,
@@ -27,6 +28,7 @@ function aCuenta(f: Record<string, string | null>): Cuenta {
     usuario: f.usuario as string,
     email: (f.email as string | null) ?? '',
     hash: f.password_hash as string,
+    habilitada: f.habilitada !== false,
   };
 }
 
@@ -42,7 +44,7 @@ export async function buscarPorUsuario(usuario: string): Promise<Cuenta | null> 
 
 type Resultado = { cuenta: Cuenta } | { error: string; campo: 'usuario' | 'dni' | 'email' };
 
-export async function crearCuenta(nueva: Omit<Cuenta, 'id'>): Promise<Resultado> {
+export async function crearCuenta(nueva: Omit<Cuenta, 'id' | 'habilitada'>): Promise<Resultado> {
   const { data, error } = await db()
     .from('cuentas')
     .insert({

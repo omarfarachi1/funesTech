@@ -1,3 +1,4 @@
+import { CATEGORIAS } from './oferta';
 // Validación compartida: la usa el formulario (cliente) y la API (servidor).
 export type TipoCuenta = 'persona' | 'empresa';
 export type Personeria = 'fisica' | 'juridica';
@@ -22,7 +23,7 @@ export const esJuridica = (d: Pick<DatosRegistro, 'tipo' | 'personeria'>) =>
 
 export const normalizarDni = (v: string) => v.replace(/[.\s-]/g, '');
 
-function edad(fecha: string, hoy = new Date()) {
+export function edad(fecha: string, hoy = new Date()) {
   const [y, m, d] = fecha.split('-').map(Number);
   let e = hoy.getFullYear() - y;
   if (hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d)) e--;
@@ -70,9 +71,9 @@ export function validarRegistro(d: DatosRegistro): Errores {
 }
 
 // ---------- Perfil del postulante ----------
-export type CampoPerfil = 'nombre' | 'fechaNacimiento' | 'email' | 'telefono' | 'localidad' | 'presentacion';
-export type DatosPerfil = Record<CampoPerfil, string>;
-export type ErroresPerfil = Partial<Record<CampoPerfil, string>>;
+export type CampoPerfil = 'nombre' | 'fechaNacimiento' | 'email' | 'telefono' | 'localidad' | 'presentacion' | 'ocupacion' | 'experiencia';
+export type DatosPerfil = Record<CampoPerfil, string> & { categorias: string[] };
+export type ErroresPerfil = Partial<Record<CampoPerfil | 'categorias', string>>;
 
 export function validarPerfil(d: DatosPerfil): ErroresPerfil {
   const e: ErroresPerfil = {};
@@ -102,6 +103,12 @@ export function validarPerfil(d: DatosPerfil): ErroresPerfil {
 
   if (d.localidad.trim().length > 80) e.localidad = 'Máximo 80 caracteres.';
   if (d.presentacion.trim().length > 600) e.presentacion = 'Máximo 600 caracteres.';
+  if (d.ocupacion.trim().length > 100) e.ocupacion = 'Máximo 100 caracteres.';
+  if (d.experiencia.trim().length > 1000) e.experiencia = 'Máximo 1000 caracteres.';
+  const lista = CATEGORIAS as readonly string[];
+  if (d.categorias.length > 12 || d.categorias.some((c) => !lista.includes(c))) {
+    e.categorias = 'Elegí hasta 12 categorías de la lista.';
+  }
   return e;
 }
 
@@ -110,3 +117,8 @@ export function errorPassword(p: string): string | null {
   if (p.length > 72) return 'La contraseña no puede superar los 72 caracteres.';
   return null;
 }
+
+export const esUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+// Quién puede iniciar sesión: postulante, empresa o administrador (el registro público solo crea los dos primeros)
+export type TipoSesion = TipoCuenta | 'admin';

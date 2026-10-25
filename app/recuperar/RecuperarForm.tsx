@@ -51,7 +51,7 @@ export default function RecuperarForm() {
           El enlace vale por 30 minutos.
         </p>
         <p className="alterna">
-          <Link href="/">Volver a ingresar</Link>
+          <Link href="/ingresar">Volver a ingresar</Link>
         </p>
       </div>
     );
@@ -85,7 +85,7 @@ export default function RecuperarForm() {
         {cargando ? 'Enviando…' : 'Enviar enlace'}
       </button>
       <p className="alterna">
-        <Link href="/">Volver a ingresar</Link>
+        <Link href="/ingresar">Volver a ingresar</Link>
       </p>
     </form>
   );

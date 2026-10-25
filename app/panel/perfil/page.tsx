@@ -4,6 +4,7 @@ import { perfilActual } from '../../../lib/postulante';
 import { fechaLarga } from '../../../lib/formato';
 import CvCard from './CvCard';
 import FotoPerfil from './FotoPerfil';
+import CambiarClave from '../CambiarClave';
 import PerfilForm from './PerfilForm';
 
 export const metadata: Metadata = { title: 'Mi perfil · Funestrabajo' };
@@ -15,7 +16,7 @@ export default async function Perfil() {
   return (
     <main className="contenedor contenedor-medio">
       <h1 className="titulo">Mi perfil</h1>
-      <p className="sub">Mantené tus datos y tu currículum al día para postularte.</p>
+      <p className="sub">Mantené tus datos y tu currículum al día. Las empresas a las que te postulás pueden ver tus datos, tu foto y tu CV.</p>
       {!perfil.email && (
         <p className="aviso">Agregá tu correo electrónico para poder recuperar tu contraseña si la olvidás.</p>
       )}
@@ -45,8 +46,16 @@ export default async function Perfil() {
             telefono: perfil.telefono,
             localidad: perfil.localidad,
             presentacion: perfil.presentacion,
+            ocupacion: perfil.ocupacion,
+            experiencia: perfil.experiencia,
+            categorias: perfil.categorias,
           }}
         />
+      </section>
+
+      <section className="bloque" aria-labelledby="t-clave">
+        <h2 id="t-clave">Contraseña</h2>
+        <CambiarClave />
       </section>
     </main>
   );

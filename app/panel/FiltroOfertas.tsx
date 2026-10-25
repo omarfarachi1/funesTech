@@ -4,14 +4,16 @@ import type { Filtros } from '../../lib/filtro';
 export default function FiltroOfertas({
   filtros,
   categorias,
+  base = '/panel',
 }: {
   filtros: Filtros;
   categorias: { nombre: string; cantidad: number }[];
+  base?: string;
 }) {
   const hayFiltros = Boolean(filtros.q || filtros.ubicacion || filtros.categoria);
 
   return (
-    <form action="/panel" method="get" className="buscador" role="search" aria-label="Buscar ofertas">
+    <form action={base} method="get" className="buscador" role="search" aria-label="Buscar ofertas">
       <div className="buscador-campos">
         <div>
           <label htmlFor="q">Palabra clave</label>
@@ -37,7 +39,7 @@ export default function FiltroOfertas({
         </button>
       </div>
       {hayFiltros && (
-        <Link href="/panel" className="restablecer">
+        <Link href={base} className="restablecer">
           Restablecer filtros
         </Link>
       )}

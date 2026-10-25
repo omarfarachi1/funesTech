@@ -17,6 +17,9 @@ export async function PUT(req: NextRequest) {
     telefono: String(c.telefono ?? '').trim(),
     localidad: String(c.localidad ?? '').trim(),
     presentacion: String(c.presentacion ?? '').trim(),
+    ocupacion: String(c.ocupacion ?? '').trim(),
+    experiencia: String(c.experiencia ?? '').trim(),
+    categorias: Array.isArray(c.categorias) ? c.categorias.map(String) : [],
   };
   const errores = validarPerfil(datos);
   if (Object.keys(errores).length > 0) return NextResponse.json({ errores }, { status: 400 });

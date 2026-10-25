@@ -4,7 +4,7 @@ import { crearCuenta } from '../../../lib/cuentas';
 import { crearSesion } from '../../../lib/session';
 import { normalizarDni, validarRegistro, type DatosRegistro } from '../../../lib/validar';
 
-export async function POST(req: NextRequest) {
+async function procesar(req: NextRequest) {
   const cuerpo = await req.json().catch(() => null);
   if (!cuerpo || (cuerpo.tipo !== 'persona' && cuerpo.tipo !== 'empresa')) {
     return NextResponse.json({ error: 'Los datos enviados no son válidos.' }, { status: 400 });
@@ -50,4 +50,13 @@ export async function POST(req: NextRequest) {
     personeria: datos.personeria,
   });
   return NextResponse.json({ ok: true }, { status: 201 });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    return await procesar(req);
+  } catch (err) {
+    console.error('Error en /api/registro:', err);
+    return NextResponse.json({ error: 'Error del servidor. Intentá de nuevo más tarde.' }, { status: 500 });
+  }
 }

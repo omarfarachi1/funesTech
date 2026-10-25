@@ -144,7 +144,7 @@ export default function FotoPerfil({ nombre, fotoVersion }: { nombre: string; fo
                 ))}
             </div>
           )}
-          <p className="meta">JPG, PNG o WebP. Se recorta en cuadrado automáticamente.</p>
+          <p className="meta">Se permiten formatos como JPG, PNG o WebP.</p>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
-import type { Personeria, TipoCuenta } from './validar';
+import type { Personeria, TipoSesion } from './validar';
 
 export const COOKIE = 'funes_sesion';
 export const DURACION = 60 * 60 * 8; // 8 horas
@@ -7,7 +7,7 @@ export const DURACION = 60 * 60 * 8; // 8 horas
 export type DatosSesion = {
   usuario: string;
   nombre: string;
-  tipo: TipoCuenta;
+  tipo: TipoSesion;
   personeria?: Personeria;
 };
 

@@ -3,18 +3,11 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { validarPerfil, type CampoPerfil, type DatosPerfil, type ErroresPerfil } from '../../../lib/validar';
+import { CATEGORIAS } from '../../../lib/oferta';
 
-const ORDEN: CampoPerfil[] = ['nombre', 'fechaNacimiento', 'email', 'telefono', 'localidad', 'presentacion'];
+const ORDEN: CampoPerfil[] = ['nombre', 'fechaNacimiento', 'localidad', 'email', 'telefono', 'ocupacion', 'experiencia', 'presentacion'];
 
-export default function PerfilForm({
-  inicial,
-  dni,
-  usuario,
-}: {
-  inicial: DatosPerfil;
-  dni: string;
-  usuario: string;
-}) {
+export default function PerfilForm({ inicial, dni, usuario }: { inicial: DatosPerfil; dni: string; usuario: string }) {
   const router = useRouter();
   const [datos, setDatos] = useState<DatosPerfil>(inicial);
   const [errores, setErrores] = useState<ErroresPerfil>({});
@@ -28,6 +21,13 @@ export default function PerfilForm({
     if (errores[campo]) setErrores({ ...errores, [campo]: undefined });
   };
 
+  const alternar = (categoria: string) => {
+    const ya = datos.categorias.includes(categoria);
+    setDatos({ ...datos, categorias: ya ? datos.categorias.filter((c) => c !== categoria) : [...datos.categorias, categoria] });
+    setGuardado(false);
+    if (errores.categorias) setErrores({ ...errores, categorias: undefined });
+  };
+
   const props = (campo: CampoPerfil) => ({
     id: campo,
     value: datos[campo],
@@ -36,7 +36,7 @@ export default function PerfilForm({
     'aria-describedby': errores[campo] ? `${campo}-error` : undefined,
   });
 
-  const mensaje = (campo: CampoPerfil) =>
+  const mensaje = (campo: CampoPerfil | 'categorias') =>
     errores[campo] && (
       <p id={`${campo}-error`} className="campo-msg">
         {errores[campo]}
@@ -66,13 +66,13 @@ export default function PerfilForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datos),
       });
-      const data: { errores?: ErroresPerfil; error?: string } = await r.json();
+      const data: { errores?: ErroresPerfil; error?: string } = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (data.errores) {
           setErrores(data.errores);
           enfocar(data.errores);
         } else {
-          setGeneral(data.error ?? 'No pudimos guardar los cambios.');
+          setGeneral(data.error ?? `El servidor no pudo procesar el pedido (código ${r.status}). Intentá de nuevo más tarde.`);
         }
         return;
       }
@@ -127,8 +127,35 @@ export default function PerfilForm({
         </div>
 
         <div className="ancho">
+          <label htmlFor="ocupacion">Ocupación u oficio</label>
+          <input type="text" maxLength={100} placeholder="Ej: Cajera, albañil, administrativo" {...props('ocupacion')} />
+          {mensaje('ocupacion')}
+        </div>
+
+        <fieldset className="categorias ancho" aria-describedby="categorias-ayuda">
+          <legend>Categorías laborales</legend>
+          <p id="categorias-ayuda" className="meta ancho-grilla">
+            Elegí todas las que te interesen: la Municipalidad las usa para encontrarte oportunidades.
+          </p>
+          {CATEGORIAS.map((c) => (
+            <label key={c} className="check">
+              <input type="checkbox" checked={datos.categorias.includes(c)} onChange={() => alternar(c)} />
+              {c}
+            </label>
+          ))}
+        </fieldset>
+        {mensaje('categorias')}
+
+        <div className="ancho">
+          <label htmlFor="experiencia">Experiencia laboral</label>
+          <textarea rows={4} maxLength={1000} placeholder="Contá en qué trabajaste, dónde y por cuánto tiempo" {...props('experiencia')} />
+          <p className="contador">{datos.experiencia.length}/1000</p>
+          {mensaje('experiencia')}
+        </div>
+
+        <div className="ancho">
           <label htmlFor="presentacion">Sobre mí</label>
-          <textarea rows={4} {...props('presentacion')} />
+          <textarea rows={3} maxLength={600} {...props('presentacion')} />
           <p className="contador">{datos.presentacion.length}/600</p>
           {mensaje('presentacion')}
         </div>

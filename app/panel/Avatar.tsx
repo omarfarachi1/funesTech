@@ -3,10 +3,12 @@ export default function Avatar({
   nombre,
   fotoVersion,
   tam = 40,
+  ruta = '/api/perfil/foto',
 }: {
   nombre: string;
   fotoVersion: string | null;
   tam?: number;
+  ruta?: string;
 }) {
   const iniciales =
     nombre
@@ -19,7 +21,7 @@ export default function Avatar({
 
   if (fotoVersion) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img className="avatar" src={`/api/perfil/foto?v=${encodeURIComponent(fotoVersion)}`} alt="" width={tam} height={tam} style={estilo} />;
+    return <img className="avatar" src={`${ruta}?v=${encodeURIComponent(fotoVersion)}`} alt="" width={tam} height={tam} style={estilo} />;
   }
   return (
     <span className="avatar" style={estilo} aria-hidden="true">

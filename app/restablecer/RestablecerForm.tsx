@@ -51,7 +51,7 @@ export default function RestablecerForm({ token }: { token: string }) {
           Ya podés ingresar con tu nueva contraseña.
         </p>
         <p className="alterna">
-          <Link href="/">Ir a ingresar</Link>
+          <Link href="/ingresar">Ir a ingresar</Link>
         </p>
       </div>
     );
